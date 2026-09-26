@@ -1305,22 +1305,49 @@ var prevRange,
     rangeRateCounter = 0,
     smoothRangeRate = 0,
     rateSmoothingFactor = 2;
+// Fixed-timestep physics: the original advanced physics once per rendered frame, so the
+// sim ran faster on high-refresh displays. Physics now always steps at PHYSICS_HZ.
+// simPaused / simStepBudget let the programmatic API (js/api.js) freeze and single-step time.
+var PHYSICS_HZ = 60,
+    physicsStepMs = 1e3 / PHYSICS_HZ,
+    physicsAccumulatorMs = 0,
+    physicsLastTime = null,
+    physicsMaxStepsPerFrame = 10,
+    simPaused = !1,
+    simStepBudget = 0,
+    simStepsPerFrameWhenStepping = 600,
+    simStepCount = 0;
+function physicsStep() {
+    (currentRotationX = currentRotationX += (0.01 * -targetRotationX - currentRotationX) * moveSpeed),
+        (currentRotationY = currentRotationY += (0.01 * -targetRotationY - currentRotationY) * moveSpeed),
+        (currentRotationZ = currentRotationZ += (0.01 * -targetRotationZ - currentRotationZ) * moveSpeed),
+        camera.rotateX(currentRotationX),
+        camera.rotateY(currentRotationY),
+        camera.rotateZ(currentRotationZ),
+        camera.position.add(motionVector),
+        !isGameOver && isGravity && (camera.position.y -= gravity),
+        earthMesh.rotateY(1e-4),
+        camera.updateMatrixWorld(),
+        checkCollision(),
+        simStepCount++;
+}
+function advancePhysics() {
+    var t = performance.now();
+    null === physicsLastTime && (physicsLastTime = t), (physicsAccumulatorMs += Math.min(t - physicsLastTime, 250)), (physicsLastTime = t);
+    var e = 0;
+    if (simPaused) {
+        for (physicsAccumulatorMs = 0; simStepBudget > 0 && e < simStepsPerFrameWhenStepping; ) physicsStep(), simStepBudget--, e++;
+    } else {
+        for (; physicsAccumulatorMs >= physicsStepMs && e < physicsMaxStepsPerFrame; ) physicsStep(), (physicsAccumulatorMs -= physicsStepMs), e++;
+        e >= physicsMaxStepsPerFrame && (physicsAccumulatorMs = 0);
+    }
+}
 function animate() {
     requestAnimationFrame(animate), render();
 }
 function render() {
     if ((scene.updateMatrixWorld(), isWarpComplete)) {
-        (currentRotationX = currentRotationX += (0.01 * -targetRotationX - currentRotationX) * moveSpeed),
-            (currentRotationY = currentRotationY += (0.01 * -targetRotationY - currentRotationY) * moveSpeed),
-            (currentRotationZ = currentRotationZ += (0.01 * -targetRotationZ - currentRotationZ) * moveSpeed),
-            camera.rotateX(currentRotationX),
-            camera.rotateY(currentRotationY),
-            camera.rotateZ(currentRotationZ),
-            (currentLocationX = currentLocationX += (-0 - currentLocationX) * moveSpeed),
-            (currentLocationY = currentLocationY += (-0 - currentLocationY) * moveSpeed),
-            (currentLocationZ = currentLocationZ += (-0 - currentLocationZ) * moveSpeed),
-            camera.position.add(motionVector),
-            !isGameOver && isGravity && (camera.position.y -= gravity),
+        advancePhysics(),
             (fixedRotationX = (camera.rotation.x / toRAD).toFixed(1)),
             (fixedRotationY = (camera.rotation.y / toRAD).toFixed(1)),
             (fixedRotationZ = (camera.rotation.z / toRAD).toFixed(1)),
@@ -1345,7 +1372,7 @@ function render() {
                 (prevRange = n),
                 (prevRangeTime = s);
         }
-        (prevRange = n), (prevRangeTime = Date.now()), earthMesh.rotateY(1e-4);
+        (prevRange = n), (prevRangeTime = Date.now());
     } else (camera.position.x += 0.01 * (mouseX - camera.position.x)), (camera.position.y += 0.01 * (-mouseY - camera.position.y)), camera.lookAt(scene.position);
     renderWormhole(),
         renderTunnel(),
@@ -1358,7 +1385,6 @@ function render() {
         renderTesla(),
         updateDistance(),
         updateWarpStatus(),
-        checkCollision(),
         renderer.render(scene, camera),
         navballRenderer.render(navballScene, navballCamera),
         tooltipRenderer.render(scene, camera);
