@@ -102,12 +102,14 @@
         };
     }
 
-    function waitFor(predicate, timeoutMs) {
+    var HIDDEN_TAB_HINT = " (is the simulator tab visible? browsers freeze hidden tabs)";
+
+    function waitFor(predicate, timeoutMs, what) {
         return new Promise(function (resolve, reject) {
             var start = Date.now();
             (function check() {
                 if (predicate()) return resolve();
-                if (Date.now() - start > timeoutMs) return reject(new Error("timed out"));
+                if (Date.now() - start > timeoutMs) return reject(new Error("timed out waiting for " + (what || "the simulator") + HIDDEN_TAB_HINT));
                 setTimeout(check, 20);
             })();
         });
@@ -140,7 +142,7 @@
         // Start a fresh attempt from any state. Resolves once the vehicle is controllable.
         reset: function () {
             var st;
-            return waitFor(function () { return isEventsEnabled; }, 120000).then(function () {
+            return waitFor(function () { return isEventsEnabled; }, 120000, "the simulator to load").then(function () {
                 st = status();
                 if (st === "intro") hideIntro();
                 else if (st === "flying") resetPosition();
@@ -153,7 +155,7 @@
                     });
                 // "arriving": the start sequence is already running.
             }).then(function () {
-                return waitFor(function () { return !isGameOver; }, 60000);
+                return waitFor(function () { return !isGameOver; }, 60000, "the vehicle to arrive at the start point");
             }).then(function () {
                 // resetPosition() tweens back to the start point over 5 s; wait it out.
                 return st === "flying" ? new Promise(function (r) { setTimeout(r, 5200); }) : null;
@@ -171,7 +173,7 @@
             if (!(seconds > 0 && seconds <= 60)) throw new Error("seconds must be > 0 and <= 60");
             if (!simPaused) throw new Error("'step' only works while paused; send 'pause' first");
             simStepBudget += Math.round(seconds * PHYSICS_HZ);
-            return waitFor(function () { return simStepBudget === 0; }, 120000);
+            return waitFor(function () { return simStepBudget === 0; }, 120000, "the step to finish");
         },
     };
 

@@ -168,6 +168,46 @@ curl -X POST localhost:5555/api/command -d '[{"command":"yaw_left","count":2},{"
 
 HTTP status codes: `200` means the command ran (check `ok`). `400` means a malformed body. `503` means no simulator tab is connected. `504` means the tab stopped responding.
 
+## Python client reference
+
+[`dragon.py`](dragon.py) is a single file with no dependencies. Copy it into your project or import it from the repo root.
+
+```python
+from dragon import Dragon, DragonError
+
+sim = Dragon("http://localhost:5555")   # the default URL
+```
+
+| Method | Returns | Notes |
+|---|---|---|
+| `state()` | state dict | Same as `GET /api/state`. |
+| `command(name, **options)` | state dict after the command | For example `command("step", seconds=2)` or `command("yaw_left", count=3)`. |
+| `commands(*cmds)` | state dict after the last one | Runs several commands in one round trip. Each item is a name or a dict: `commands("pitch_up", {"command": "step", "seconds": 1})`. |
+| `reset()` | state dict | Starts a new attempt from any status, and returns once `flying`. |
+| `pause()`, `resume()`, `step(seconds=1.0)` | state dict | Turn-based mode (see above). |
+| `roll_left(count=1)`, `roll_right`, `pitch_up`, `pitch_down`, `yaw_left`, `yaw_right` | state dict | Rotation pulses. |
+| `translate_forward(count=1)`, `translate_backward`, `translate_left`, `translate_right`, `translate_up`, `translate_down` | state dict | Translation pulses. |
+
+Any failure raises `DragonError` with a readable message: an invalid command, a command sent outside `flying`, the server not running, or no browser tab connected.
+
+A minimal turn-based control loop:
+
+```python
+sim = Dragon()
+sim.reset()
+sim.pause()
+s = sim.state()
+while s["status"] == "flying":
+    cmds = []
+    if s["attitude"]["pitch"] < -0.5 and s["rotation_rate_commanded"]["pitch"] <= 0:
+        cmds.append({"command": "pitch_up"})
+    # ...more decisions...
+    s = sim.commands(*cmds, {"command": "step", "seconds": 0.2})
+print(s["status"], s["message"])
+```
+
+See [`examples/autopilot.py`](examples/autopilot.py) for a complete controller that docks.
+
 ## Other ways in
 
 - **Browser JavaScript:** the page exposes `window.dragon`, with `dragon.getState()` and `dragon.command("pitch_up", {count: 2})` (returns a Promise). You can use it from the devtools console, Playwright/Puppeteer `page.evaluate`, or a browser-automation agent. It works without `server.py`.
@@ -176,8 +216,10 @@ HTTP status codes: `200` means the command ran (check `ok`). `400` means a malfo
 
 ## Gotchas
 
-- **Keep exactly one simulator tab open, and keep it visible.** Browsers pause hidden or minimized tabs, which stops the sim and makes commands time out. With two tabs open, they'll steal each other's commands. For unattended runs, a headless browser works:
-  `msedge --headless=new --enable-unsafe-swiftshader --disable-background-timer-throttling --disable-renderer-backgrounding http://localhost:5555` (or `chrome` with the same flags). Rendering is slow without a GPU, but pause/step still runs faster than real time.
+- **Keep exactly one simulator tab open, and keep it visible.** Browsers pause background tabs, minimized windows, and on Windows even windows completely covered by another window. That stops the sim, and commands time out with `the simulator tab stopped responding`. Put the browser side by side with your terminal or editor. With two tabs open, they'll steal each other's commands.
+- **For unattended runs, use a headless browser:**
+  `msedge --headless=new --enable-unsafe-swiftshader --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows http://localhost:5555` (or `chrome` with the same flags). Rendering is slow without a GPU, but pause/step still runs faster than real time.
+- **On Windows PowerShell**, `curl` is an alias for `Invoke-WebRequest`. Use `curl.exe` and escape the inner quotes, or just use the Python client.
 - **Velocities can be very small numbers:** `0.06` is one fine pulse, and the docking limit is `0.24` (4 pulses).
 - **Reloading the page** resets everything, including pause mode and gravity.
 - To let other machines on the network connect, run `python server.py --host 0.0.0.0`.
