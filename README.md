@@ -81,6 +81,16 @@ The simulation still runs in the browser, exactly as on SpaceX's site. [`js/api.
 
 Manual play is otherwise unchanged.
 
+## Run it as a hackathon challenge
+
+[`hackathon/`](hackathon/README.md) turns the simulator into a hosted, password-protected booth with three AI challenges and a big-screen leaderboard:
+
+- **Beginner: AI CAPCOM.** You fly while an AI capsule communicator talks you in and remembers your previous attempts.
+- **Intermediate: Role Reversal.** An AI pilot flies and you're its CAPCOM, with limited radio calls and standing orders.
+- **Advanced: Black Box Dragon.** Your own AI agent flies over HTTP with unlabeled, scrambled thrusters and position-only sensors.
+
+The first two need only a browser. [hackathon/README.md](hackathon/README.md) covers setting up an Anthropic API key with auto-reload and spend limits, and deploying to Render. [hackathon/CHALLENGES.md](hackathon/CHALLENGES.md) is the participant guide.
+
 ## Repository layout
 
 | Path | What it is |
@@ -91,6 +101,7 @@ Manual play is otherwise unchanged.
 | `dragon.py` | Python client |
 | `examples/autopilot.py` | Reference controller that docks successfully |
 | `API.md` | API reference |
+| `hackathon/` | Hosted hackathon version: password-protected, with AI CAPCOM, an AI pilot, the Black Box challenge and a leaderboard ([guide](hackathon/README.md)) |
 
 ## Tips
 

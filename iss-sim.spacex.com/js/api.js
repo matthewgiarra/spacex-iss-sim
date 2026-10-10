@@ -20,12 +20,15 @@
 
     var outcome = null; // "success" | "fail" once an attempt ends
     var outcomeMessage = "";
+    var outcomeStep = null; // simStepCount when the attempt ended; time_s stops there
 
     // Record why an attempt ended. hideInterface is a global, so wrapping it catches every call.
     var originalHideInterface = window.hideInterface;
     window.hideInterface = function (result) {
         outcome = result;
         outcomeMessage = result === "fail" ? ($("#fail-message").textContent || "").trim() : "Docking successful.";
+        outcomeStep = simStepCount;
+        simStepBudget = 0; // end any 'step' in progress: the attempt is over
         return originalHideInterface.apply(this, arguments);
     };
 
@@ -42,11 +45,12 @@
     }
 
     function getState() {
+        var ended = isGameOver && outcome !== null; // a human "play again" leaves outcome set until the next ending
         var s = {
             status: status(),
-            message: outcome ? outcomeMessage : "",
+            message: ended ? outcomeMessage : "",
             paused: simPaused,
-            time_s: round(simStepCount / PHYSICS_HZ, 3), // sim seconds since this attempt began
+            time_s: round((ended ? outcomeStep : simStepCount) / PHYSICS_HZ, 3), // sim seconds since this attempt began (frozen once it ends)
         };
         if (!isWarpComplete) return s;
 
@@ -151,6 +155,7 @@
                     return waitFor(function () { return !interfaceAnimationOut.isActive(); }, 10000).then(function () {
                         outcome = null;
                         outcomeMessage = "";
+                        outcomeStep = null;
                         showInterface();
                     });
                 // "arriving": the start sequence is already running.
@@ -198,12 +203,16 @@
     };
 
     // ---- HTTP bridge (only active when served by server.py) ----
-    var bridgeUrl = "bridge/sync";
+    // A page script can redirect the bridge by setting window.dragonBridge = { url: "..." },
+    // or pause it with { url: null } (the hackathon server uses this for Black Box missions).
+    var defaultBridgeUrl = "bridge/sync";
     var pendingResults = [];
     var bridgeConnected = false;
     var commandQueue = Promise.resolve();
 
     function sync() {
+        var bridgeUrl = window.dragonBridge ? window.dragonBridge.url : defaultBridgeUrl;
+        if (!bridgeUrl) return setTimeout(sync, 500);
         var results = pendingResults;
         pendingResults = [];
         fetch(bridgeUrl, {
@@ -217,6 +226,7 @@
             })
             .then(function (msg) {
                 if (!bridgeConnected) console.log("[dragon] connected to API bridge");
+                if (window.dragonBridge && window.dragonBridge.onSync) window.dragonBridge.onSync(msg);
                 bridgeConnected = true;
                 // Run commands strictly in order; each finishes before the next starts.
                 (msg.commands || []).forEach(function (c) {

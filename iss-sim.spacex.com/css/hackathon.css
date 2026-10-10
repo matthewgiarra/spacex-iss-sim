@@ -1,0 +1,139 @@
+/* Hackathon side panel (js/hackathon.js). Only applies when a hackathon mode is active. */
+
+html.hk body {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 380px;
+    overflow: hidden;
+}
+
+#hk-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 380px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    background: #050608;
+    border-left: 1px solid #222;
+    color: #ddd;
+    font-family: "Lato", sans-serif;
+    font-size: 13px;
+    z-index: 100;
+}
+#hk-panel * { box-sizing: border-box; }
+
+.hk-head { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.12em; }
+.hk-head a { color: #888; text-decoration: none; }
+.hk-head a:hover { color: #fff; }
+.hk-tier { font-size: 15px; font-weight: 700; letter-spacing: 0.14em; color: #fff; }
+
+.hk-setup { display: flex; flex-direction: column; gap: 8px; }
+.hk-field { display: flex; flex-direction: column; gap: 3px; }
+.hk-field > span, .hk-label { font-size: 10px; letter-spacing: 0.16em; color: #888; }
+.hk-field input, .hk-field select, .hk-field textarea, .hk-input input, .hk-url {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    background: #0d0f12;
+    color: #fff;
+    font: inherit;
+}
+.hk-field textarea { resize: vertical; min-height: 70px; line-height: 1.4; }
+.hk-field input:focus, .hk-field select:focus, .hk-field textarea:focus, .hk-input input:focus { outline: 1px solid #0cf; border-color: #0cf; }
+.hk-check { font-size: 12px; color: #aaa; cursor: pointer; }
+.hk-lock-hint { display: none; margin-top: -4px; font-size: 12px; color: #0cf; }
+html.hk-locked .hk-lock-hint { display: block; }
+html.hk-locked .hk-setup .hk-field:first-child input { border-color: #0cf; }
+
+.hk-buttons { display: flex; gap: 8px; }
+.hk-btn, .hk-input button {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1px solid #fff;
+    border-radius: 4px;
+    background: #fff;
+    color: #000;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    cursor: pointer;
+}
+.hk-btn:hover, .hk-input button:hover { background: #0cf; border-color: #0cf; }
+.hk-btn-ghost { background: transparent; color: #fff; }
+.hk-btn-ghost:hover { background: #222; border-color: #fff; }
+
+.hk-row { display: flex; align-items: baseline; gap: 12px; border-top: 1px solid #222; padding-top: 10px; }
+.hk-timer { font-size: 26px; font-weight: 300; color: #fff; font-variant-numeric: tabular-nums; min-width: 92px; }
+.hk-status { font-size: 11px; letter-spacing: 0.1em; color: #0cf; text-transform: uppercase; }
+
+.hk-gauge { font-size: 10px; letter-spacing: 0.12em; color: #888; min-height: 14px; }
+.hk-bar { height: 4px; margin-top: 4px; background: #222; border-radius: 2px; overflow: hidden; }
+.hk-bar i { display: block; height: 100%; background: #0cf; }
+.hk-bar.hk-warn i { background: #f33; }
+
+.hk-log {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 4px;
+    border-top: 1px solid #222;
+    padding-top: 10px;
+}
+.hk-msg { line-height: 1.45; }
+.hk-msg b { font-size: 10px; letter-spacing: 0.14em; }
+.hk-capcom { color: #fff; }
+.hk-capcom b { color: #0cf; }
+.hk-pilot { color: #fff; }
+.hk-pilot b { color: #fc0; }
+.hk-you { color: #bbb; text-align: right; }
+.hk-you b { color: #888; }
+.hk-sys { color: #777; font-size: 12px; }
+.hk-debrief { color: #fff; border-left: 2px solid #0cf; padding-left: 8px; }
+.hk-debrief b { color: #0cf; }
+
+.hk-input { display: flex; gap: 6px; }
+.hk-input input { flex: 1; }
+.hk-input button { flex: 0 0 auto; }
+.hk-input input:disabled { opacity: 0.5; }
+
+.hk-mission { display: flex; flex-direction: column; gap: 6px; }
+.hk-url { font-family: Menlo, Consolas, monospace; font-size: 11px; }
+.hk-code {
+    margin: 0;
+    padding: 8px;
+    background: #0d0f12;
+    border: 1px solid #222;
+    border-radius: 4px;
+    color: #9cf;
+    font-family: Menlo, Consolas, monospace;
+    font-size: 10.5px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* No gravity toggle or teleport tricks on the leaderboard. */
+html.hk #option-settings { display: none !important; }
+/* Pick a callsign before you can start. */
+html.hk-locked #begin-button,
+html.hk-locked #fail-button,
+html.hk-locked #success-button { pointer-events: none; opacity: 0.3 !important; }
+/* Where the AI or your agent flies, the human gets no stick (and no thruster animations to peek at). */
+html.hk-noflight #rotation-controls,
+html.hk-noflight #translation-controls,
+html.hk-noflight #options,
+html.hk-noflight #hud-tips,
+html.hk-noflight #begin-button,
+html.hk-noflight #fail-button,
+html.hk-noflight #success-button { display: none !important; }

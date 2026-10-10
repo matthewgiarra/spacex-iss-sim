@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dragon Docking Challenge</title>
+<link href="https://fonts.googleapis.com/css?family=Lato:300,400,700" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #000; color: #fff; font-family: Lato, sans-serif; }
+  form { width: min(360px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 14px; }
+  h1 { margin: 0 0 4px; font-weight: 300; font-size: 26px; letter-spacing: 0.18em; }
+  p { margin: 0; color: #888; font-size: 13px; line-height: 1.5; }
+  input { padding: 12px; border: 1px solid #333; border-radius: 4px; background: #0d0f12; color: #fff; font: inherit; font-size: 16px; }
+  input:focus { outline: 1px solid #0cf; border-color: #0cf; }
+  button { padding: 12px; border: 0; border-radius: 4px; background: #fff; color: #000; font: inherit; font-weight: 700; letter-spacing: 0.16em; cursor: pointer; }
+  button:hover { background: #0cf; }
+  .error { color: #f55; display: none; }
+</style>
+</head>
+<body>
+<form method="post" action="/login">
+  <h1>DRAGON DOCKING</h1>
+  <p>AI for Everyone hackathon challenge. Enter the password from the booth.</p>
+  <input type="password" name="password" placeholder="Password" autofocus autocomplete="current-password" required>
+  <input type="hidden" name="next" id="next" value="/">
+  <p class="error" id="error">That password didn't work.</p>
+  <button type="submit">ENTER</button>
+</form>
+<script>
+  var q = new URLSearchParams(location.search);
+  document.getElementById("next").value = q.get("next") || "/";
+  if (q.get("error")) document.getElementById("error").style.display = "block";
+</script>
+</body>
+</html>

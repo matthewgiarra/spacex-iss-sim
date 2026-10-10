@@ -94,7 +94,7 @@ while True:
     sim.step(0.5)            # advance exactly 0.5 s of sim time, then freeze again
 ```
 
-`step` usually runs much faster than real time. `resume` goes back to real time. Commands work while paused and take effect on the next step.
+`step` usually runs much faster than real time. `resume` goes back to real time. Commands work while paused and take effect on the next step. If the attempt ends (docking or failure) partway through a `step`, the step stops there.
 
 ## State reference
 
@@ -124,7 +124,7 @@ while True:
 | `status` | `loading` → `intro` → `arriving` → `flying` → `success` or `fail`. Only `flying` accepts thruster commands. |
 | `message` | Why the attempt ended, e.g. `"The following errors occurred: SPEED"`. |
 | `paused` | True while in pause/step mode. |
-| `time_s` | Sim seconds since this attempt began. |
+| `time_s` | Sim seconds since this attempt began. Stops counting when the attempt ends, so after `success` it is the docking time. |
 | `position` | Metres from the docking port (see Coordinates). |
 | `velocity` | m/s, same axes. Excludes gravity drift. |
 | `range` | Straight-line distance to the port, in metres. |

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docking Leaderboard</title>
+<link href="https://fonts.googleapis.com/css?family=Lato:300,400,700" rel="stylesheet">
+<style>
+  /* Built for a 16:9 TV across the booth: everything scales with the viewport. */
+  :root { color-scheme: dark; --muted: #7d828b; --line: #1d2026; --accent: #0cf; --gold: #ffcf40; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: Lato, sans-serif; overflow: hidden; }
+  body { display: flex; flex-direction: column; padding: 2.2vh 2vw; gap: 2vh; }
+  header { display: flex; justify-content: space-between; align-items: baseline; }
+  h1 { margin: 0; font-weight: 300; font-size: 4.2vh; letter-spacing: 0.2em; }
+  .join { font-size: 2vh; color: var(--muted); letter-spacing: 0.08em; }
+  .join b { color: #fff; font-weight: 400; }
+  .boards { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.25fr 1fr 1fr 1fr; gap: 1.4vw; }
+  .board { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--line); border-radius: 0.8vh; padding: 1.8vh 1.2vw; background: #050607; }
+  .board.overall { border-color: #2b3038; background: #07090c; }
+  .board h2 { margin: 0; font-size: 1.6vh; letter-spacing: 0.22em; color: var(--accent); font-weight: 700; }
+  .board h3 { margin: 0.3vh 0 1.4vh; font-size: 2.6vh; font-weight: 400; letter-spacing: 0.04em; }
+  ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6vh; }
+  li { display: grid; grid-template-columns: 2.4em 1fr auto; align-items: baseline; column-gap: 0.6em; padding: 0.7vh 0.5vw; border-radius: 0.5vh; font-size: 2.2vh; }
+  .overall li { font-size: 2.6vh; }
+  li:first-child { background: rgba(255, 207, 64, 0.08); }
+  li:first-child .pos, li:first-child .time { color: var(--gold); }
+  .pos { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .who { min-width: 0; overflow: hidden; }
+  .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .detail { display: block; font-size: 0.68em; color: var(--muted); letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .time { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .empty { color: var(--muted); font-size: 2vh; padding: 1vh 0.5vw; }
+  li.fresh { animation: fresh 2s ease-in-out 5; }
+  @keyframes fresh { 0%, 100% { background: transparent; } 50% { background: rgba(0, 204, 255, 0.25); } }
+  .stale { position: fixed; bottom: 1vh; right: 2vw; font-size: 1.4vh; color: #f55; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DRAGON DOCKING · FASTEST TIMES</h1>
+  <div class="join">Play at <b id="host"></b></div>
+</header>
+<section class="boards">
+  <div class="board overall"><h2>OVERALL</h2><h3>Any challenge</h3><ol id="overall"></ol></div>
+  <div class="board"><h2>BEGINNER</h2><h3>AI CAPCOM</h3><ol id="beginner"></ol></div>
+  <div class="board"><h2>INTERMEDIATE</h2><h3>Role Reversal</h3><ol id="intermediate"></ol></div>
+  <div class="board"><h2>ADVANCED</h2><h3>Black Box Dragon</h3><ol id="advanced"></ol></div>
+</section>
+<div class="stale" id="stale">Reconnecting…</div>
+<script>
+  "use strict";
+  document.getElementById("host").textContent = location.host;
+  var TIER_NAMES = { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" };
+  var seen = null; // run ids already on screen, so new records can flash
+
+  function fmtTime(s) {
+    var m = Math.floor(s / 60);
+    return m ? m + ":" + ("0" + (s - 60 * m).toFixed(1)).slice(-4) : s.toFixed(1) + "s";
+  }
+
+  function detail(r, board) {
+    var bits = [];
+    if (board === "overall") bits.push(TIER_NAMES[r.tier]);
+    if (r.tier === "beginner") bits.push(r.model === "none" ? "Solo" : r.model_label);
+    if (r.tier === "intermediate") bits.push(r.model_label, r.messages_used + " radio call" + (r.messages_used === 1 ? "" : "s"));
+    if (r.tier === "advanced") bits.push(r.attempts + " attempt" + (r.attempts === 1 ? "" : "s"));
+    return bits.filter(Boolean).join(" · ");
+  }
+
+  function render(data) {
+    var ids = {};
+    Object.keys(data).forEach(function (board) {
+      var ol = document.getElementById(board);
+      if (!ol) return;
+      ol.textContent = "";
+      if (!data[board].length) {
+        var empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No dockings yet. Be the first!";
+        ol.appendChild(empty);
+      }
+      data[board].forEach(function (r, i) {
+        ids[r.id] = true;
+        var li = document.createElement("li");
+        if (seen && !seen[r.id]) li.className = "fresh";
+        li.innerHTML = '<span class="pos"></span><span class="who"><span class="name"></span><span class="detail"></span></span><span class="time"></span>';
+        li.querySelector(".pos").textContent = i + 1;
+        li.querySelector(".name").textContent = r.callsign;
+        li.querySelector(".detail").textContent = detail(r, board);
+        li.querySelector(".time").textContent = fmtTime(r.time_s);
+        ol.appendChild(li);
+      });
+    });
+    seen = ids;
+  }
+
+  function refresh() {
+    fetch("/api/leaderboard", { credentials: "same-origin" })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (data) { render(data); document.getElementById("stale").style.display = "none"; })
+      .catch(function () { document.getElementById("stale").style.display = "block"; })
+      .then(function () { setTimeout(refresh, 5000); });
+  }
+  refresh();
+</script>
+</body>
+</html>

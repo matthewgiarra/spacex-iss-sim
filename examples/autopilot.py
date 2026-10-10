@@ -5,7 +5,7 @@ It exists to prove the API is sufficient to dock, and as a baseline to beat.
     python server.py                  # in one terminal, then open http://localhost:5555
     python examples/autopilot.py      # in another
 
-By default it pauses the sim and advances it in fixed steps (--realtime to fly live).
+By default it flies in real time (--slow to pause the sim and advance it in fixed steps).
 """
 
 import argparse
@@ -69,16 +69,16 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--url", default="http://localhost:5555")
     ap.add_argument("--dt", type=float, default=0.2, help="seconds of sim time between control updates")
-    ap.add_argument("--realtime", action="store_true", help="fly in real time instead of pause-and-step")
+    ap.add_argument("--slow", action="store_true", help="pause the sim and advance it in fixed steps instead of flying in real time")
     args = ap.parse_args()
 
     sim = Dragon(args.url)
     print("resetting...")
     s = sim.reset()
-    if args.realtime:
-        sim.resume()
-    else:
+    if args.slow:
         sim.pause()
+    else:
+        sim.resume()
 
     last_print = -10
     while s["status"] == "flying":
@@ -86,13 +86,13 @@ def main():
         aligned = all(abs(a) < 0.5 for a in s["attitude"].values())
         if aligned:
             cmds += translation_commands(s)
-        if args.realtime:
+        if args.slow:
+            s = sim.commands(*cmds, {"command": "step", "seconds": args.dt})
+        else:
             if cmds:
                 sim.commands(*cmds)
             time.sleep(args.dt)
             s = sim.state()
-        else:
-            s = sim.commands(*cmds, {"command": "step", "seconds": args.dt})
         if s["time_s"] - last_print >= 5 or s["status"] != "flying":
             last_print = s["time_s"]
             print("t=%6.1fs  range=%7.2f m  pos=%s  vel=%s  att=%s" % (s["time_s"], s.get("range", 0), s.get("position"), s.get("velocity"), s.get("attitude")))

@@ -1,0 +1,29 @@
+# Render Blueprint for the hosted hackathon server (hackathon/app.py).
+# See hackathon/README.md, "Put it online". Secrets marked sync: false are typed into Render's dashboard.
+services:
+  - type: web
+    name: dragon-docking
+    runtime: python
+    plan: starter # the free plan sleeps when idle and can't keep a disk, so the leaderboard would reset
+    buildCommand: pip install -r hackathon/requirements.txt
+    startCommand: python hackathon/app.py
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: HACKATHON_PASSWORD
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DAILY_BUDGET_USD
+        value: "50"
+      - key: DATA_FILE
+        value: /var/data/hackathon.json
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

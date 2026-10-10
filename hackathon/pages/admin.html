@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docking Admin</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 24px 16px; background: #000; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-weight: 400; margin: 0 0 4px; }
+  p { color: #888; margin: 0 0 16px; }
+  .wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #222; white-space: nowrap; }
+  th { color: #888; font-weight: 400; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+  td.msg { white-space: normal; color: #888; max-width: 320px; }
+  .success { color: #0cf; }
+  .fail { color: #f66; }
+  button { background: #300; color: #f99; border: 1px solid #622; border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+  button:hover { background: #500; }
+  select { background: #111; color: #ddd; border: 1px solid #333; padding: 4px; }
+</style>
+</head>
+<body>
+<h1>Runs</h1>
+<p>Delete an entry to take it off the leaderboard (for example a test run or an obvious cheat). Deleting can't be undone.
+  Show: <select id="filter"><option value="success">Successful runs</option><option value="all">All runs</option></select></p>
+<div class="wrap"><table>
+  <thead><tr><th>When</th><th>Tier</th><th>Callsign</th><th>Outcome</th><th>Time</th><th>Model</th><th>Extra</th><th>Message</th><th></th></tr></thead>
+  <tbody id="rows"></tbody>
+</table></div>
+<script>
+  "use strict";
+  var filter = document.getElementById("filter");
+  filter.addEventListener("change", load);
+
+  function cell(tr, text, cls) {
+    var td = document.createElement("td");
+    td.textContent = text;
+    if (cls) td.className = cls;
+    tr.appendChild(td);
+  }
+
+  function load() {
+    fetch("/api/admin/runs", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (runs) {
+      var tbody = document.getElementById("rows");
+      tbody.textContent = "";
+      runs.filter(function (r) { return filter.value === "all" || r.outcome === "success"; }).forEach(function (r) {
+        var tr = document.createElement("tr");
+        cell(tr, new Date(r.created * 1000).toLocaleString());
+        cell(tr, r.tier);
+        cell(tr, r.callsign);
+        cell(tr, r.outcome, r.outcome);
+        cell(tr, r.time_s.toFixed(1) + " s");
+        cell(tr, r.model || "");
+        cell(tr, r.tier === "intermediate" ? r.messages_used + " calls" : r.tier === "advanced" ? r.attempts + " attempts, " + r.commands + " commands" : "");
+        cell(tr, r.message || "", "msg");
+        var td = document.createElement("td");
+        var b = document.createElement("button");
+        b.textContent = "Delete";
+        b.onclick = function () {
+          if (!confirm("Delete " + r.callsign + "'s " + r.time_s.toFixed(1) + " s run?")) return;
+          fetch("/api/admin/delete", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: r.id }) }).then(load);
+        };
+        td.appendChild(b);
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      });
+    });
+  }
+  load();
+</script>
+</body>
+</html>
