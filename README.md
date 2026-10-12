@@ -1,3 +1,5 @@
+# Update on October 12, 2026: This page is being updated. Hackathon participants should not follow these instructions yet.
+
 # SpaceX ISS Docking Simulator, offline and scriptable
 
 Run the [SpaceX ISS Docking Simulator](https://iss-sim.spacex.com/) locally, and fly it by hand **or from code**. A small HTTP API and a dependency-free Python client let you read the spacecraft's state and fire its thrusters. Use them to write autopilots, test control algorithms, or let an AI agent attempt the docking.
