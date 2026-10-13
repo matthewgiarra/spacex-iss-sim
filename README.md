@@ -88,10 +88,10 @@ Manual play is otherwise unchanged.
 [`hackathon/`](hackathon/README.md) turns the simulator into a hosted, password-protected booth with three AI challenges and a big-screen leaderboard:
 
 - **Beginner: AI CAPCOM.** You fly while an AI capsule communicator talks you in and remembers your previous attempts.
-- **Intermediate: Role Reversal.** An AI pilot flies and you're its CAPCOM, with limited radio calls and standing orders.
+- **Intermediate: Autopilot.** Write your own autopilot (with an AI's help); it runs on your laptop in any language, receiving streamed telemetry and sending commands over HTTP while the sim runs in real time.
 - **Advanced: Black Box Dragon.** Your own AI agent flies over HTTP with unlabeled, scrambled thrusters and position-only sensors.
 
-The first two need only a browser. [hackathon/README.md](hackathon/README.md) covers setting up an Anthropic API key with auto-reload and spend limits, and deploying to Render. [hackathon/CHALLENGES.md](hackathon/CHALLENGES.md) is the participant guide.
+The beginner tier needs only a browser; the others need Python (or PowerShell) and an AI assistant. [hackathon/README.md](hackathon/README.md) covers setting up an Anthropic API key with auto-reload and spend limits, and deploying to Render. [hackathon/CHALLENGES.md](hackathon/CHALLENGES.md) is the participant guide.
 
 ## Repository layout
 
@@ -103,7 +103,7 @@ The first two need only a browser. [hackathon/README.md](hackathon/README.md) co
 | `dragon.py` | Python client |
 | `examples/autopilot.py` | Reference controller that docks successfully |
 | `API.md` | API reference |
-| `hackathon/` | Hosted hackathon version: password-protected, with AI CAPCOM, an AI pilot, the Black Box challenge and a leaderboard ([guide](hackathon/README.md)) |
+| `hackathon/` | Hosted hackathon version: password-protected, with AI CAPCOM, bring-your-own Autopilot, the Black Box challenge and a leaderboard ([guide](hackathon/README.md)) |
 
 ## Tips
 

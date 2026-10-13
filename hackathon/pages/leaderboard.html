@@ -44,7 +44,7 @@
 <section class="boards">
   <div class="board overall"><h2>OVERALL</h2><h3>Any challenge</h3><ol id="overall"></ol></div>
   <div class="board"><h2>BEGINNER</h2><h3>AI CAPCOM</h3><ol id="beginner"></ol></div>
-  <div class="board"><h2>INTERMEDIATE</h2><h3>Role Reversal</h3><ol id="intermediate"></ol></div>
+  <div class="board"><h2>INTERMEDIATE</h2><h3>Autopilot</h3><ol id="intermediate"></ol></div>
   <div class="board"><h2>ADVANCED</h2><h3>Black Box Dragon</h3><ol id="advanced"></ol></div>
 </section>
 <div class="stale" id="stale">Reconnecting…</div>
@@ -63,7 +63,6 @@
     var bits = [];
     if (board === "overall") bits.push(TIER_NAMES[r.tier]);
     if (r.tier === "beginner") bits.push(r.model === "none" ? "Solo" : r.model_label);
-    if (r.tier === "intermediate") bits.push(r.model_label, r.messages_used + " radio call" + (r.messages_used === 1 ? "" : "s"));
     if (r.tier === "advanced") bits.push(r.attempts + " attempt" + (r.attempts === 1 ? "" : "s"));
     return bits.filter(Boolean).join(" · ");
   }

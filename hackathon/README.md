@@ -5,10 +5,10 @@ This folder turns the simulator into a hosted, password-protected hackathon boot
 | Challenge | Who it's for | What participants need |
 |---|---|---|
 | **Beginner: AI CAPCOM.** You fly; an AI capsule communicator talks you in and remembers your previous attempts. Pick the model, or fly solo. | Anyone | A browser |
-| **Intermediate: Role Reversal.** An AI pilot flies; you're its CAPCOM. You get 10 radio calls per flight, plus standing orders you refine between flights. | Anyone who has tried the beginner tier | A browser |
+| **Intermediate: Autopilot.** Write your own autopilot (with an AI's help) in any language and run it on your laptop. The sim runs in real time; the autopilot requests telemetry and sends thruster inputs (request-reply over HTTPS). | Anyone comfortable running a program | Any language that can send HTTPS requests (Python, C and C++ clients provided; Python needs no installs) and any AI assistant |
 | **Advanced: Black Box Dragon.** Your own AI agent flies over HTTP, but the thrusters are unlabeled and scrambled, and the sensors report only position and attitude. | People comfortable with an AI coding agent | An AI agent plus Python or PowerShell |
 
-Participant instructions, the handout you share before the event, are in **[CHALLENGES.md](CHALLENGES.md)**.
+Participant instructions, the handout you share before the event, are in **[CHALLENGES.md](CHALLENGES.md)**. The Autopilot tier's starter kit is in [`kit/`](kit/) (served to participants as `/kit.zip`), and its API is documented in **[AUTOPILOT_API.md](AUTOPILOT_API.md)**.
 
 Pages on the hosted site:
 
@@ -47,7 +47,7 @@ The server calls the Claude API with your key, so every CAPCOM message and AI-pi
 3. **Turn on auto-reload** under **Settings → Billing**. Set a threshold and a reload amount, for example "when the balance drops below $25, add $50". Then a busy afternoon tops itself up instead of stopping. (Menu names may drift as the Console changes; look for "auto-reload" on the billing page.)
 4. **Make a dedicated workspace with a spend limit.** Under **Settings → Workspaces**, create a workspace called `hackathon` and set its monthly spend limit to the most you're willing to spend. Auto-reload keeps the account funded; the workspace limit caps what this event can use.
 5. **Create an API key in that workspace** (**Settings → API keys**, choose the `hackathon` workspace). This is the `ANTHROPIC_API_KEY` you give the server. Revoke it after the event.
-6. **Check your rate limits** under **Settings → Limits**. A busy booth sends a lot of small requests: each beginner player's CAPCOM speaks every few seconds, and each AI pilot makes a decision every few seconds. New accounts start at a low usage tier. If your requests-per-minute limit looks tight for the number of laptops at your booth, buying more credits up front usually moves the account up a tier. Do it a few days before the event.
+6. **Check your rate limits** under **Settings → Limits**. A busy booth sends a lot of small requests: each beginner player's CAPCOM speaks every few seconds. (The Autopilot and Black Box tiers make no Claude calls on your key; participants bring their own AI.) New accounts start at a low usage tier. If your requests-per-minute limit looks tight for the number of laptops at your booth, buying more credits up front usually moves the account up a tier. Do it a few days before the event.
 
 The server has its own guard too: `DAILY_BUDGET_USD` (default $50) stops all AI calls once the day's estimated spend reaches it. Participants see "today's AI budget is used up; ask the booth staff". Raise it and restart if you need to.
 
@@ -55,11 +55,13 @@ The server has its own guard too: `DAILY_BUDGET_USD` (default $50) stops all AI 
 
 Each CAPCOM call or pilot decision sends about 2,000 to 3,000 tokens and gets a short reply. Approximate cost per attempt at current prices:
 
-| Model | Beginner run (~5 min, a call every ~5 s) | Intermediate flight (~100 to 200 pilot decisions) |
-|---|---|---|
-| Claude Haiku 5.5 | about $0.03 | about $0.10 |
-| Claude Sonnet 5.5 | about $0.60 | about $1 to $2 |
-| Claude Opus 5.5 | about $1.20 | about $2 to $4 |
+| Model | Beginner run (~5 min, a call every ~5 s) |
+|---|---|
+| Claude Haiku 5.5 | about $0.03 |
+| Claude Sonnet 5.5 | about $0.60 |
+| Claude Opus 5.5 | about $1.20 |
+
+Only the beginner tier spends from your key.
 
 Haiku is the default choice in the menus. To offer fewer models, remove them from `MODELS` in [`claude.py`](claude.py).
 
@@ -76,7 +78,7 @@ Any host that runs a long-lived Python process with a small persistent disk will
    - `HACKATHON_PASSWORD`: what participants type. Make it easy to say out loud but not guessable, like `orbital-pancake-42`.
    - `ADMIN_PASSWORD`: for you and your staff. It also works as a participant password.
 4. Click **Apply**. The first deploy takes a few minutes. Your site is at `https://dragon-docking.onrender.com` (or similar). Check that `https://<your-site>/healthz` says `{"ok": true}`.
-5. Log in, fly a test run in each tier, then delete the test runs at `/admin`.
+5. Log in, fly a test run in each tier, then delete the test runs at `/admin`. For the Autopilot tier, use the staff test autopilot, which flies a complete docking (about 5.5 minutes): get a link on the Autopilot page, then run `python hackathon/tools/test_autopilot.py <autopilot URL> --launch`. Keep `tools/` out of anything you hand to participants; it's a working answer.
 
 Notes:
 
@@ -125,13 +127,12 @@ Notes:
 
 - **The simulator still runs in the browser.** [`js/hackathon.js`](../iss-sim.spacex.com/js/hackathon.js) adds the side panel when the page is opened with `?mode=beginner|intermediate|advanced`. It also enforces the approach-corridor rule after every physics step, and blocks the manual controls in tiers where the AI or an agent flies. Without `?mode=`, for example under the local `server.py`, the simulator is unchanged.
 - **CAPCOM** gets telemetry about once a second from the browser and is called every ~12 s, or sooner when something happens: a milestone, a warning, or a message from the player. The browser computes sign-correct guidance ("Y offset +3.2 m: translate left (A)"), so the model coaches instead of doing coordinate maths. After each attempt CAPCOM writes a debrief, which is stored under the player's callsign and shown to CAPCOM at the start of the next attempt. That's its memory.
-- **The AI pilot** makes one decision per turn through a `fly` tool (thruster pulses plus how long to coast), with the sim paused while it thinks. Each turn it sees the player's standing orders, every radio call this flight (unseen ones marked NEW), its last few turns, and the current telemetry. Prompts are rebuilt every call, so cost per decision stays flat.
+- **Autopilot** links (`/ap/<id>/api/request`, see [AUTOPILOT_API.md](AUTOPILOT_API.md)) connect a participant's program, in any language, to their own browser tab. It's request-reply over HTTPS: `telemetry` returns the newest state from the tab's last sync (~30 ms old at most), and `control` relays thruster inputs to the tab and returns once they've been applied. The sim runs in real time, so network delay is part of the control loop, as on a real vehicle. After a `control` request the server withholds telemetry older than the moment the inputs took effect, per client id, so autopilots don't double-fire on stale data. The panel shows "Autopilot connected" while requests arrive (within 3 s). The server times each flight from the moment the Dragon is ready and records the result itself; a watchdog abandons flights whose tab disappears. The kit's clients (`kit/hackathon/client.py`, standard library; `kit/include/` header-only C/C++ on WinHTTP or libcurl) wrap the endpoint. Session logic for this and Black Box is in [`remote.py`](remote.py).
 - **Black Box** missions get a random, private scramble: the 12 real thrusters plus 2 dead ones, renamed T01 to T14 in random order, each multiplied 1×, 2× or 3×. The mapping never leaves the server. The agent talks to `/bb/<mission id>/api/...`, the server translates and relays the commands to that mission's browser tab (the same relay as `server.py`), and it reports only position, range and attitude. The mission clock adds up the sim time of every attempt, and the server records the docking itself.
 - Prompts live in [`claude.py`](claude.py). The CAPCOM, Opus and Sonnet calls use the server-side refusal fallback (`fallbacks: "default"`), so a rare false-positive safety refusal is retried on a fallback model instead of going silent.
 
 ### Tuning the challenges
 
-- **AI pilot difficulty.** The intermediate tier only works if the pilot is beatable but coachable. Playtest it with a few models before the event. If it docks easily with no help, give it less information: trim `PILOT_SYSTEM` in `claude.py`, or offer only the smallest model. If it never gets close even with good coaching, add a hint or two to `PILOT_SYSTEM`.
-- **Radio calls per flight:** `PILOT_MESSAGE_BUDGET` in `app.py`.
+- **Autopilot:** the 600 s flight limit, the lost-tab timeout and the connected window are `MAX_FLIGHT_S`, `TAB_LOST_S` and `CONNECTED_WINDOW_S` in `remote.py`. The starter template (`kit/autopilot.py`) deliberately only levels the attitude; make it more or less complete to adjust difficulty.
 - **Corridor rule:** `corridorLimit()` in `js/hackathon.js` (closing speed under 0.1 + 0.02 × range m/s). It applies to the intermediate and advanced tiers; the beginner tier has only the simulator's own docking limits.
-- **Black Box:** `BLACKBOX_DEAD_THRUSTERS` and the 1×/2×/3× multipliers in `new_mission()` in `app.py`; the sensor fields agents get are in `AGENT_STATE_KEYS`.
+- **Black Box:** `BLACKBOX_DEAD_THRUSTERS` and the 1×/2×/3× multipliers in `BlackBoxMission` in `remote.py`; the sensor fields agents get are in `AGENT_STATE_KEYS`.

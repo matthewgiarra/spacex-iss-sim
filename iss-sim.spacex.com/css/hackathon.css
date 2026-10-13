@@ -49,6 +49,12 @@ html.hk body {
 .hk-field textarea { resize: vertical; min-height: 70px; line-height: 1.4; }
 .hk-field input:focus, .hk-field select:focus, .hk-field textarea:focus, .hk-input input:focus { outline: 1px solid #0cf; border-color: #0cf; }
 .hk-check { font-size: 12px; color: #aaa; cursor: pointer; }
+.hk-link { color: #0cf; font-size: 12px; text-decoration: none; }
+.hk-link:hover { text-decoration: underline; }
+.hk-conn { font-size: 12px; color: #fc0; }
+.hk-conn.hk-ok { color: #3d6; }
+.hk-btn:disabled { opacity: 0.4; cursor: default; }
+.hk-btn:disabled:hover { background: #fff; border-color: #fff; }
 .hk-lock-hint { display: none; margin-top: -4px; font-size: 12px; color: #0cf; }
 html.hk-locked .hk-lock-hint { display: block; }
 html.hk-locked .hk-setup .hk-field:first-child input { border-color: #0cf; }
@@ -95,8 +101,6 @@ html.hk-locked .hk-setup .hk-field:first-child input { border-color: #0cf; }
 .hk-msg b { font-size: 10px; letter-spacing: 0.14em; }
 .hk-capcom { color: #fff; }
 .hk-capcom b { color: #0cf; }
-.hk-pilot { color: #fff; }
-.hk-pilot b { color: #fc0; }
 .hk-you { color: #bbb; text-align: right; }
 .hk-you b { color: #888; }
 .hk-sys { color: #777; font-size: 12px; }

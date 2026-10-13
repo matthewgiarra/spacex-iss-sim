@@ -1,6 +1,6 @@
 """Tiny persistent store: one JSON file, rewritten atomically after every change.
 
-Holds the leaderboard (finished runs), per-callsign memory for CAPCOM and the AI pilot,
+Holds the leaderboard (finished runs), per-callsign memory for CAPCOM,
 and today's API spend. Good for a hackathon's worth of data (thousands of runs).
 """
 
@@ -41,6 +41,14 @@ class Store:
             self._save()
         return run
 
+    def purge(self, predicate):
+        """Drop every run for which predicate(run) is true."""
+        with self.lock:
+            before = len(self.data["runs"])
+            self.data["runs"] = [r for r in self.data["runs"] if not predicate(r)]
+            if len(self.data["runs"]) != before:
+                self._save()
+
     def delete_run(self, run_id):
         with self.lock:
             before = len(self.data["runs"])
@@ -67,7 +75,8 @@ class Store:
         return boards
 
     def rank(self, tier, time_s):
-        """1-based position a time would take on a tier's board."""
+        """1-based position a time would take on a tier's board (times are stored to 0.1 s)."""
+        time_s = round(time_s, 1)
         return 1 + sum(1 for r in self.leaderboard(limit=10**6)[tier] if r["time_s"] < time_s)
 
     # ---- per-callsign memory ----

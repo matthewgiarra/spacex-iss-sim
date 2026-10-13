@@ -2,7 +2,7 @@
 // hackathon/app.py and opened with ?mode=beginner|intermediate|advanced; otherwise it does nothing.
 //
 //   beginner      you fly; an AI CAPCOM watches your telemetry and talks you in
-//   intermediate  an AI pilot flies; you are its CAPCOM (limited radio calls)
+//   intermediate  your own autopilot program flies in real time: it requests telemetry and sends thruster inputs
 //   advanced      Black Box: your own agent flies over HTTP with unlabeled thrusters
 (function () {
     "use strict";
@@ -10,7 +10,7 @@
     var MODE = new URLSearchParams(location.search).get("mode");
     var TIERS = {
         beginner: "BEGINNER · AI CAPCOM",
-        intermediate: "INTERMEDIATE · YOU ARE CAPCOM",
+        intermediate: "INTERMEDIATE · AUTOPILOT",
         advanced: "ADVANCED · BLACK BOX DRAGON",
     };
     if (!TIERS[MODE]) return;
@@ -162,11 +162,11 @@
     }
 
     function log(kind, text) {
-        var who = { capcom: "CAPCOM", you: "YOU", pilot: "PILOT", sys: "", debrief: "DEBRIEF", agent: "AGENT" }[kind];
+        var who = { capcom: "CAPCOM", you: "YOU", sys: "", debrief: "DEBRIEF" }[kind];
         var line = el("div", { class: "hk-msg hk-" + kind }, [who ? el("b", { text: who + " " }) : null, text]);
         logBox.appendChild(line);
         logBox.scrollTop = logBox.scrollHeight;
-        if (voiceOn && (kind === "capcom" || kind === "pilot" || kind === "debrief") && window.speechSynthesis) {
+        if (voiceOn && (kind === "capcom" || kind === "debrief") && window.speechSynthesis) {
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
         }
@@ -440,166 +440,116 @@
         setInterval(beginnerTick, 1000 / 10);
     }
 
-    // ================================================================== INTERMEDIATE: you are CAPCOM, the AI flies
+    // ================================================================== INTERMEDIATE: bring your own autopilot
+    // The participant's program (any language; the kit has Python, C and C++ clients) sends requests to this
+    // site while this tab flies in real time. This panel hands out the program's URL, launches flights and
+    // shows results.
 
-    var pilot = { run: null, aborted: false, flying: false };
-
-    function cmd(name, opts) {
-        return dragon.command(name, opts || {});
-    }
-
-    // Resolves once the vehicle is controllable (the arrival can be slow on weak graphics).
-    function untilFlying(timeoutMs) {
-        var t0 = Date.now();
-        return (function check() {
-            var st = dragon.getState().status;
-            if (st === "flying") return Promise.resolve();
-            if (Date.now() - t0 > timeoutMs) return Promise.reject(new Error("the Dragon never arrived at the start point (status " + st + ")"));
-            return sleep(250).then(check);
-        })();
-    }
+    var autopilot = { id: null, seen: 0 };
 
     function initIntermediate() {
-        pilot.modelSel = modelSelect("hk_pilot_model", false, cfg.models[0].id);
-        pilot.orders = el("textarea", { rows: "5", maxlength: "800", placeholder: "Standing orders: advice the pilot reads before every decision. Leave blank for the first flight and watch what goes wrong." });
-        pilot.launch = el("button", { class: "hk-btn", type: "button", text: "LAUNCH AI PILOT", onclick: flyPilot });
-        pilot.abortBtn = el("button", { class: "hk-btn hk-btn-ghost", type: "button", text: "ABORT FLIGHT", onclick: function () { pilot.aborted = true; } });
-        pilot.abortBtn.style.display = "none";
         var cs = callsignInput();
-        cs.addEventListener("change", loadOrders);
+        autopilot.linkBtn = el("button", { class: "hk-btn", type: "button", text: "GET AUTOPILOT LINK", onclick: newAutopilotLink });
+        autopilot.launchBtn = el("button", { class: "hk-btn", type: "button", text: "LAUNCH", onclick: launchAutopilot });
+        autopilot.launchBtn.style.display = "none";
+        autopilot.conn = el("div", { class: "hk-conn" });
+        autopilot.box = el("div", { class: "hk-mission" });
         setupBox.appendChild(field("CALLSIGN", cs));
-        setupBox.appendChild(field("AI PILOT", pilot.modelSel));
-        setupBox.appendChild(field("STANDING ORDERS", pilot.orders));
-        setupBox.appendChild(voiceToggle());
-        setupBox.appendChild(el("div", { class: "hk-buttons" }, [pilot.launch, pilot.abortBtn]));
-        inputBox.placeholder = "Radio the pilot… (" + cfg.pilot_message_budget + " calls per flight)";
-        inputBox.disabled = true;
-        inputForm.addEventListener("submit", function (e) {
-            e.preventDefault();
-            var text = inputBox.value.trim();
-            if (!text || !pilot.run) return;
-            inputBox.value = "";
-            api("/api/pilot/message", { run_id: pilot.run.id, text: text })
-                .then(function (res) {
-                    log("you", text);
-                    setMessagesLeft(res.messages_left);
-                })
-                .catch(function (e) { log("sys", e.message); });
-        });
+        setupBox.appendChild(el("a", { class: "hk-link", href: "/kit.zip", text: "⬇ Download the starter kit: Python, C and C++ clients, examples, API docs" }));
+        setupBox.appendChild(el("div", { class: "hk-buttons" }, [autopilot.linkBtn, autopilot.launchBtn]));
+        setupBox.appendChild(autopilot.conn);
+        setupBox.appendChild(autopilot.box);
+        inputForm.style.display = "none";
         updateLock();
-        loadOrders();
-        log("sys", "The AI pilot flies; you're its CAPCOM. Watch it fly, radio advice (" + cfg.pilot_message_budget +
-            " calls per flight), and write standing orders between flights. The sim pauses while the pilot thinks. " +
-            "Rule: closing speed must stay under 0.1 + 0.02 × range m/s.");
-        setInterval(function () {
-            updateGauge();
-            if (pilot.flying) timerBox.textContent = fmtTime(dragon.getState().time_s);
-        }, 100);
+        log("sys", "Your own autopilot program flies this Dragon in real time: it requests telemetry and sends thruster inputs, " +
+            "in any language (see AUTOPILOT_API.md in the starter kit). Press GET AUTOPILOT LINK, start your autopilot with that URL, " +
+            "then press LAUNCH. " +
+            "Rule: closing speed must stay under 0.1 + 0.02 × range m/s. Keep this tab visible while flying.");
+        var saved = store("hk_autopilot");
+        if (saved) attachAutopilotLink(saved, true);
+        setInterval(updateGauge, 100);
     }
 
-    function setMessagesLeft(n) {
-        pilot.left = n;
-        inputBox.disabled = n <= 0 || !pilot.run;
-        inputBox.placeholder = n > 0 ? "Radio the pilot… (" + n + " calls left)" : "No radio calls left this flight";
-    }
-
-    function loadOrders() {
-        if (!callsign()) return;
-        api("/api/profile?callsign=" + encodeURIComponent(callsign())).then(function (p) {
-            if (!pilot.orders.value) pilot.orders.value = p.standing_orders || "";
-        });
-    }
-
-    function lockSetup(locked) {
-        pilot.launch.style.display = locked ? "none" : "";
-        pilot.abortBtn.style.display = locked ? "" : "none";
-        pilot.modelSel.disabled = pilot.orders.disabled = locked;
-    }
-
-    function flyPilot() {
+    function newAutopilotLink() {
         if (!callsign()) return log("sys", "Pick a callsign first.");
-        if (pilot.flying) return;
-        pilot.flying = true;
-        pilot.aborted = false;
-        lockSetup(true);
-        logBox.innerHTML = "";
-        var run, s;
-        setStatus("Starting flight…");
-        api("/api/pilot/start", { callsign: callsign(), model: pilot.modelSel.value, standing_orders: pilot.orders.value })
-            .then(function (res) {
-                run = pilot.run = { id: res.run_id };
-                setMessagesLeft(res.messages_left);
-                log("sys", "Flight started with " + pilot.modelSel.selectedOptions[0].text + " at the controls.");
-                setStatus("Dragon is arriving…");
-                return cmd("reset");
+        if (autopilot.id && !confirm("Get a new autopilot link? The old one stops working.")) return;
+        api("/api/autopilot", { callsign: callsign() })
+            .then(function (res) { attachAutopilotLink(res.id, false); })
+            .catch(function (e) { log("sys", e.message); });
+    }
+
+    function attachAutopilotLink(id, resumed) {
+        api("/api/autopilot/" + encodeURIComponent(id))
+            .then(function (st) {
+                autopilot.id = id;
+                autopilot.seen = st.finished; // don't re-announce old flights
+                store("hk_autopilot", id);
+                var base = location.origin + "/ap/" + id;
+                autopilot.box.innerHTML = "";
+                autopilot.box.appendChild(el("div", { class: "hk-label", text: "YOUR AUTOPILOT URL (keep it secret)" }));
+                var url = el("input", { type: "text", readonly: "readonly", value: base, class: "hk-url" });
+                url.addEventListener("focus", function () { url.select(); });
+                autopilot.box.appendChild(url);
+                var command = "python autopilot.py " + base;
+                autopilot.box.appendChild(el("div", { class: "hk-label", text: "PYTHON EXAMPLE: RUN THIS IN THE STARTER KIT FOLDER" }));
+                autopilot.box.appendChild(el("pre", { class: "hk-code", text: command }));
+                autopilot.box.appendChild(el("button", {
+                    class: "hk-btn hk-btn-ghost", type: "button", text: "COPY COMMAND",
+                    onclick: function () { navigator.clipboard && navigator.clipboard.writeText(command); },
+                }));
+                autopilot.linkBtn.textContent = "NEW LINK";
+                autopilot.linkBtn.classList.add("hk-btn-ghost");
+                autopilot.launchBtn.style.display = "";
+                window.dragonBridge = { url: "/ap/" + id + "/bridge/sync", onSync: function (msg) { showAutopilot(msg.session); } };
+                showAutopilot(st);
+                if (resumed) log("sys", "Reconnected to your autopilot link.");
             })
-            .then(function () { return untilFlying(300000); })
-            .then(function () { return cmd("pause"); })
-            .then(function () {
-                simStepsPerFrameWhenStepping = 2; // play each coast at about 2x real time so you can watch
-                return pilotLoop(run);
-            })
-            .then(function (st) { s = st; return pilotFinish(run, s); })
-            .catch(function (e) {
-                log("sys", "Flight stopped: " + e.message);
-                if (run && !s) api("/api/pilot/finish", { run_id: run.id, outcome: "abort", time_s: 0 }).catch(function () {});
-            })
-            .then(function () {
-                simStepsPerFrameWhenStepping = 600;
-                cmd("resume");
-                pilot.run = null;
-                pilot.flying = false;
-                setMessagesLeft(0);
-                inputBox.placeholder = "Radio is closed between flights";
-                lockSetup(false);
+            .catch(function () {
+                store("hk_autopilot", "");
+                if (resumed) log("sys", "Your previous autopilot link has expired. Press GET AUTOPILOT LINK for a new one.");
             });
     }
 
-    function pilotLoop(run) {
-        var failures = 0;
-        function turn() {
-            var s = dragon.getState();
-            if (s.status !== "flying") return Promise.resolve(s);
-            if (pilot.aborted) return Promise.resolve(Object.assign({}, s, { status: "abort" }));
-            if (s.time_s > 1200) return Promise.resolve(Object.assign({}, s, { status: "fail", message: "Out of time (20 minutes of sim time)." }));
-            setStatus("Pilot is thinking…");
-            return api("/api/pilot/turn", { run_id: run.id, state: s })
-                .then(function (d) {
-                    failures = 0;
-                    if (d.radio) log("pilot", d.radio);
-                    var fired = d.commands.map(function (c) { return c.command.replace("translate_", "") + (c.count > 1 ? " ×" + c.count : ""); });
-                    log("sys", "T+" + s.time_s.toFixed(0) + "s  " + (fired.length ? "fires " + fired.join(", ") : "holds") + ", coasts " + d.coast_seconds.toFixed(1) + " s");
-                    setStatus("Flying…");
-                    var chain = Promise.resolve();
-                    d.commands.forEach(function (c) { chain = chain.then(function () { return cmd(c.command, { count: c.count }); }); });
-                    return chain.then(function () { return cmd("step", { seconds: d.coast_seconds }); });
-                })
-                .catch(function (e) {
-                    if (e.status === 402 || e.status === 404 || e.status === 409 || ++failures > 4) throw e;
-                    setStatus("Radio static, retrying…");
-                    return sleep(1500 * failures);
-                })
-                .then(turn);
-        }
-        return turn();
+    function launchAutopilot() {
+        if (!autopilot.id) return;
+        autopilot.launchBtn.disabled = true;
+        api("/api/autopilot/" + encodeURIComponent(autopilot.id) + "/launch", {})
+            .then(function () { log("sys", "Launching. The Dragon takes a few seconds to arrive, then your autopilot takes over."); })
+            .catch(function (e) { log("sys", "Couldn't launch: " + e.message); autopilot.launchBtn.disabled = false; });
     }
 
-    function pilotFinish(run, s) {
-        var outcome = s.status === "success" ? "success" : s.status === "abort" ? "abort" : "fail";
-        if (!isGameOver) {
-            // Ended by us (abort or out of time) rather than by the sim: close out the attempt on screen too.
-            $("#fail-message").textContent = outcome === "abort" ? "Flight aborted by CAPCOM." : s.message;
+    function showAutopilot(st) {
+        if (!st) return;
+        autopilot.conn.textContent = st.autopilot_connected ? "● Autopilot connected" : "○ Autopilot not connected";
+        autopilot.conn.classList.toggle("hk-ok", !!st.autopilot_connected);
+        var f = st.flight, busy = f && (f.status === "launching" || f.status === "flying");
+        autopilot.launchBtn.disabled = !!busy;
+        if (f && f.status === "launching") setStatus("Launching…");
+        else if (f && f.status === "flying") {
+            setStatus((st.autopilot_connected ? "Flying · " : "Flying with no autopilot connected · ") + f.commands + " commands");
+            if (st.flight_time_s !== null) timerBox.textContent = fmtTime(st.flight_time_s);
+        }
+        if (f && f.status === "done" && f.result && !isGameOver && isWarpComplete) {
+            // The server ended the flight (out of time, aborted): end the attempt on screen too.
+            $("#fail-message").textContent = f.result.message;
             window.hideInterface("fail");
         }
-        log("sys", outcome === "success" ? "DOCKED in " + s.time_s.toFixed(1) + " s." : outcome === "abort" ? "Flight aborted." : "FAILED: " + (s.message || dragon.getState().message || ""));
-        setStatus(outcome === "success" ? "DOCKED in " + fmtTime(s.time_s) : outcome === "abort" ? "Aborted" : "Failed");
-        if (outcome !== "abort") setStatus("Pilot is writing a debrief…");
-        return api("/api/pilot/finish", { run_id: run.id, outcome: outcome, time_s: s.time_s, message: s.message || dragon.getState().message })
-            .then(function (res) {
-                if (res.debrief) log("debrief", res.debrief);
-                if (res.rank) log("sys", "That's #" + res.rank + " on the intermediate leaderboard (" + res.messages_used + " radio calls used).");
-                setStatus(outcome === "success" ? "DOCKED in " + fmtTime(s.time_s) + (res.rank ? " · #" + res.rank : "") : outcome === "abort" ? "Aborted" : "Failed. Edit your standing orders and relaunch.");
-            });
+        var fresh = Math.min(st.finished - autopilot.seen, st.history.length);
+        st.history.slice(st.history.length - fresh).forEach(function (r) {
+            if (r.outcome === "success") {
+                log("sys", "DOCKED in " + r.time_s.toFixed(1) + " s" + (r.rank ? ", #" + r.rank + " on the autopilot leaderboard." : "."));
+                setStatus("Docked in " + fmtTime(r.time_s) + (r.rank ? " · #" + r.rank : ""));
+            } else if (r.outcome === "fail") {
+                log("sys", "FAILED after " + r.time_s.toFixed(1) + " s: " + r.message);
+                setStatus("Failed. Tune your autopilot and LAUNCH again.");
+            } else {
+                log("sys", "Flight didn't start: " + r.message);
+                setStatus("Ready");
+            }
+            timerBox.textContent = fmtTime(r.time_s);
+        });
+        autopilot.seen = st.finished;
+        if (!f) setStatus(st.autopilot_connected ? "Ready: press LAUNCH" : "Start your autopilot");
     }
 
     // ================================================================== ADVANCED: Black Box Dragon
@@ -658,7 +608,7 @@
                         "curl -X POST " + base + "/api/command \\\n  -d '{\"command\": \"reset\"}'\n\n" +
                         "# Python (dragon.py from the repo)\nsim = Dragon(\"" + base + "\")\nsim.reset()\nsim.command(\"T07\", count=2)",
                 }));
-                window.dragonBridge = { url: "/bb/" + id + "/bridge/sync", onSync: function (msg) { showMission(msg.mission); } };
+                window.dragonBridge = { url: "/bb/" + id + "/bridge/sync", onSync: function (msg) { showMission(msg.session); } };
                 showMission(st);
                 if (resumed) log("sys", "Reconnected to your mission.");
             })

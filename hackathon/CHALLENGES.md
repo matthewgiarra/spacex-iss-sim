@@ -4,16 +4,17 @@ Dock SpaceX's Dragon capsule with the International Space Station as fast as you
 
 You'll get the **website address** and a **password** at the booth.
 
-| | Beginner: AI CAPCOM | Intermediate: Role Reversal | Advanced: Black Box Dragon |
+| | Beginner: AI CAPCOM | Intermediate: Autopilot | Advanced: Black Box Dragon |
 |---|---|---|---|
-| **Who flies** | You | An AI pilot | Your own AI agent |
-| **How AI helps** | An AI CAPCOM talks you in | You coach the AI pilot | The AI works out an unknown spacecraft |
-| **You need** | A laptop with a browser | A laptop with a browser | A laptop, an AI coding agent, and Python or PowerShell |
-| **Time** | 5 to 10 minutes per attempt | 10 to 15 minutes per flight | 30 minutes or more |
+| **Who flies** | You | Your own autopilot program | Your own AI agent |
+| **How AI helps** | An AI CAPCOM talks you in | AI helps you write the autopilot | The AI works out an unknown spacecraft |
+| **You need** | A laptop with a browser | A laptop, any programming language that speaks HTTP, and any AI assistant | A laptop, an AI coding agent, and Python or PowerShell |
+| **Time** | 5 to 10 minutes per attempt | 30 minutes or more | 30 minutes or more |
 
 ## Before you come
 
-- **Beginner and Intermediate:** nothing to install. Bring a laptop with an up-to-date Chrome, Edge or Firefox. A mouse helps but isn't required.
+- **Beginner:** nothing to install. Bring a laptop with an up-to-date Chrome, Edge or Firefox. A mouse helps but isn't required.
+- **Intermediate:** a way to run a program that speaks HTTP, in any language you like, and any AI assistant (even a chat in your browser). The easiest paths: Python 3.8+ with our starter kit (see [Setup](#setup) for installing Python without admin rights), Node.js, or Windows PowerShell, which every Windows laptop already has.
 - **Advanced:** see [Advanced: setup](#setup) below. Install everything before you arrive; the booth Wi-Fi is not the place to download tools.
 
 ## The basics (all challenges)
@@ -63,30 +64,35 @@ The on-screen buttons do the same. Each control group has a precision toggle: co
 
 ---
 
-## Intermediate: Role Reversal
+## Intermediate: Autopilot
 
-Now an **AI pilot flies** and **you are its CAPCOM**. On its own the pilot is not very good. Your coaching is what gets it docked, and fast.
+Write your own autopilot, in any language, run it on your laptop, and let it fly the Dragon. The simulator runs in real time. Your program asks the website for the latest measurements (position, velocity, attitude, rotation rates), decides, and sends thruster inputs back, over and over. Use an AI to help write it: that's the point.
 
 ### How to play
 
-1. Choose **Be the CAPCOM** on the website.
-2. Type a **callsign** and choose the **AI pilot** model.
-3. Leave **standing orders** blank for your first flight. Press **LAUNCH AI PILOT** and watch what goes wrong.
-4. While it flies, **radio** the pilot from the box at the bottom. You have **10 calls per flight**, so make them count. The simulation pauses while the pilot thinks, which gives you time to type.
-5. After the flight the pilot gives you its **debrief**. Turn what you learned into **standing orders**: advice the pilot reads before every decision of the next flight.
-6. Launch again. Keep refining.
+1. Choose **Autopilot** on the website. Download the **starter kit** from the panel and unzip it.
+2. Type a **callsign** and press **GET AUTOPILOT LINK**. Keep this tab open and visible: your Dragon flies here.
+3. Start your autopilot with the URL the panel shows. The kit's Python example, in the kit folder:
+   ```bash
+   python autopilot.py https://<site>/ap/<your-key>
+   ```
+4. Press **LAUNCH**. Your autopilot flies; the panel shows how it's going.
+5. Improve your autopilot, run it again and press LAUNCH again.
+
+**Any language works.** Your autopilot sends requests to your URL: ask for telemetry, send six thruster inputs, as JSON over HTTPS. The kit has a Python client (no installs) and header-only C and C++ clients, each with a runnable example; any language that can send an HTTPS request works too. `AUTOPILOT_API.md` (in the kit) documents everything, and the kit's `README.md` includes a prompt to paste into an AI assistant.
 
 ### Rules
 
-- **Approach corridor:** the closing speed must always stay under **0.1 + 0.02 × range** m/s (4.1 m/s at 200 m, 0.5 m/s at 20 m, 0.2 m/s at 5 m). Break it and the flight fails. The bar under the timer shows how close the pilot is to the limit.
-- Your time is the AI's flight time. The leaderboard shows the model and how many radio calls you used.
+- **Approach corridor:** the closing speed must always stay under **0.1 + 0.02 × range** m/s (4.1 m/s at 200 m, 0.5 m/s at 20 m, 0.2 m/s at 5 m). Break it and the flight fails. The bar under the timer shows how close you are to the limit.
+- Dock within 600 s of simulated time.
+- It's real time: the Dragon keeps moving while your program thinks, and thruster inputs take a moment to arrive. Plan for that delay.
+- Only your program flies; the manual controls are disabled.
 
-### Tips for good coaching
+### Tips
 
-- Rules of thumb beat joystick commands. "Never close faster than 1% of the range" helps for the whole flight; "fire forward twice" helps for one turn.
-- Use numbers: "below 10 m, keep each velocity under 0.1 m/s".
-- Watch for patterns: does it overshoot? Forget to stop rotating? Ignore the sideways offset?
-- Try a different pilot model. Does a smarter pilot need less coaching, or different coaching?
+- Get it docking first, then make it fast. A slow docking is on the board; a fast crash isn't.
+- Watch the terminal: the example prints the state every 5 s and how each flight ended. When a flight fails, the message says why (`SPEED`, `ROTATION`, the corridor…).
+- The public repository's [`examples/autopilot.py`](../examples/autopilot.py) docks when there's no corridor rule. It's a fair starting point, but it breaks the corridor as it is.
 
 ---
 
